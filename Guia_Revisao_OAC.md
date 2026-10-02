@@ -1,48 +1,109 @@
-# Guia de Revisão Resumido - Organização e Arquitetura de Computadores
+# Guia de Revisão Completo - Organização e Arquitetura de Computadores
 
-Este guia compila os tópicos teóricos e práticos mais cruciais exigidos na prova, com base nos slides da disciplina e nos exercícios de MIPS e MSP430.
+Este guia compila os tópicos teóricos e práticos detalhados para a prova, com foco na arquitetura MIPS (32 bits) e no microcontrolador MSP430 (16 bits), englobando formatos exatos em bits, convenções de registradores e modos de endereçamento.
 
 ---
 
 ## 1. Arquitetura vs. Organização
-* **Arquitetura (ISA - Instruction Set Architecture):** É a abstração do processador visível ao programador de baixo nível. Define **o que** o processador faz: seu conjunto de instruções, modos de endereçamento, tamanho da palavra e registradores acessíveis. (Ex: x86, ARM, MIPS32).
-* **Organização (Microarquitetura):** É como a ISA é implementada fisicamente pelo engenheiro de hardware. Define **como** o processador faz: transistores, ALUs, pipelining, portas lógicas e barramentos internos.
-* *Nota crucial:* Várias **organizações** diferentes podem compartilhar e implementar uma mesma **arquitetura** (ISA). (Ex: Processadores Intel e AMD usam organizações diferentes para executar a mesma ISA x86).
+* **Arquitetura (ISA - Instruction Set Architecture):** É o modelo mental do programador. Define **o que** o processador faz: as instruções, tamanho da palavra, registradores acessíveis e a forma como a memória é vista. Ex: MIPS32, x86, ARM.
+* **Organização (Microarquitetura):** É o projeto de hardware. Define **como** a ISA é implementada em silício: transistores, ALUs (Unidade Lógica Aritmética), pipelining, cache e barramentos.
+* **Modelos de Memória Gerais:**
+  * **Von Neumann:** Dados e Instruções dividem o mesmo espaço de memória e os mesmos barramentos. (Gargalo de Von Neumann). É o caso do MSP430.
+  * **Harvard:** Memórias e barramentos fisicamente separados para Dados e Instruções. Permite leitura simultânea.
 
-## 2. Componentes Fundamentais
-* **Processador (CPU):** Executa um ciclo infinito de 3 passos: (1) **Buscar** a instrução, (2) **Decodificar/Identificar** e (3) **Executar**.
-* **Registradores:** São pequenas e rapidíssimas memórias *internas* da CPU feitas de flip-flops. 
-  * No **MIPS32**, há 32 registradores de uso geral. 
-  * No **MSP430**, há 16 registradores (R0 a R3 têm funções especiais como PC e SP, e R4 a R15 são de uso geral).
+## 2. Visão Detalhada dos Registradores
+Os registradores são as memórias mais rápidas do sistema, localizadas dentro da CPU.
 
-## 3. Formato de Instruções e Código de Máquina
-As instruções da ISA têm um tamanho fixo (ex: 32 bits no MIPS) e possuem formatos bem definidos que traduzem Assembly para Binário (Código Objeto).
-* **Opcode (Código de Operação):** É o campo da instrução que diz ao hardware qual operação matemática, lógica ou de controle deve ser feita (ex: se é um ADD, um LOAD ou um BRANCH).
-* **Campos Variáveis:** Definem os operandos (registradores de origem `rs`, de destino `rt` e constantes imediatas `imm`).
-* **Tradução:** Constantes negativas (ex: `-32`) são representadas em **complemento de dois**. 
+### A. Registradores MIPS (32 registradores de 32 bits)
+No MIPS, embora haja 32 registradores genéricos, a convenção dita o uso de cada um:
+* **$zero (0):** Sempre contém o valor 0. Imutável.
+* **$v0 - $v1 (2-3):** Usados para armazenar o **valor de retorno** de uma função.
+* **$a0 - $a3 (4-7):** Usados para passar os **argumentos** (parâmetros) para uma função.
+* **$t0 - $t9 (8-15, 24-25):** Registradores **temporários**. A função chamada pode alterá-los livremente.
+* **$s0 - $s7 (16-23):** Registradores **salvos**. Se uma função quiser usá-los, ela deve salvar o valor original na pilha (Stack) e restaurá-lo antes de retornar.
+* **$sp (29):** *Stack Pointer* - Aponta para o topo da pilha.
+* **$ra (31):** *Return Address* - Guarda o endereço para o qual a função deve retornar após terminar (usado pelo `jal`).
 
-## 4. Modos de Endereçamento (CRUCIAL)
-Modo de endereçamento é "a forma como o processador localiza ou recupera cada operando de uma instrução". 
-* **Imediato:** O dado é uma constante "embutida" no próprio código da instrução. (Ex: `addiu $t0, $t0, 10`).
-* **A Registrador:** O operando é recuperado diretamente de um registrador da CPU. (Ex: `$t0`, `$a1`).
-* **Direto ou Absoluto:** O operando é um endereço de memória explícito. (O MIPS não possui isso nativamente, exige 2 instruções como `lui` e `ori`).
-* **Relativo ao PC:** Usa o Program Counter (PC) atual mais um deslocamento (offset). Muito usado em instruções de salto (Branch, ex: `bne`, `beq`).
-* **Base-Deslocamento (ou Indexado):** Usa um registrador contendo um endereço-base e soma uma constante (offset) a ele. Essencial para acessar arrays e structs. (Ex: `lw $t0, 4($s0)` calcula o endereço como `$s0 + 4`).
+### B. Registradores MSP430 (16 registradores de 16 bits)
+* **R0:** `PC` (Program Counter) - Aponta para a próxima instrução.
+* **R1:** `SP` (Stack Pointer) - Ponteiro de pilha.
+* **R2:** `SR/CG1` (Status Register / Constant Generator 1).
+* **R3:** `CG2` (Constant Generator 2).
+* **R4 - R15:** Uso geral para variáveis e cálculos.
 
-## 5. Modelo de Acesso à Memória
-A comunicação entre o processador e a memória se dá pelos barramentos:
-1. **Endereço:** O processador envia qual a exata "gaveta" (posição) da memória que deseja acessar. (Se houver *m* fios, a memória pode ter $2^m$ posições).
-2. **Operação/Controle:** O processador diz se deseja **Ler** (Load) ou **Escrever** (Store) na memória.
-3. **Dados:** Os fios por onde o dado lido transita da memória para o processador, ou o dado a ser escrito transita do processador para a memória.
+## 3. Formatos de Instrução (O Código de Máquina)
+Toda instrução no **MIPS possui exatamente 32 bits (4 bytes)**. A forma como esses 32 bits são fatiados depende do "Formato" da instrução:
 
-## 6. Lógica de Código MIPS (Baseado nos Exercícios)
-* **Estrutura de Saltos e Loops:** No assembly MIPS, comandos de controle de fluxo como `while` e `if-else` em C usam rótulos (labels) e saltos (branches/jumps). 
-  * `beq` (branch if equal), `bne` (not equal), `bge` (greater or equal). 
-  * Um laço geralmente decremente ou incremente um registrador e faça uma checagem (ex: `bgtz $t7, loop` repete enquanto `$t7 > 0`).
-* **Chamadas de Função:** Usa-se `jal` (Jump and Link) para ir para uma função. O endereço de retorno fica salvo em `$ra`. A função termina com `jr $ra` para voltar. 
-* **Regras de Registradores:** Parâmetros de função vão em `$a0-$a3`. O retorno da função vai em `$v0`.
+### A. Tipo R (Register)
+Usado para instruções lógicas e aritméticas onde todos os operandos são registradores (ex: `add`, `sub`, `and`).
+* **Estrutura (32 bits):** `| opcode (6 bits) | rs (5 bits) | rt (5 bits) | rd (5 bits) | shamt (5 bits) | funct (6 bits) |`
+  * **opcode:** Diz a categoria da operação (geralmente `0` para Tipo R).
+  * **rs / rt:** Registradores fonte (5 bits permitem endereçar $2^5 = 32$ registradores).
+  * **rd:** Registrador destino.
+  * **shamt:** *Shift amount* (quantidade de deslocamento para operações de shift, ex: `sll`).
+  * **funct:** Define qual operação exata realizar (já que o opcode é genérico).
 
-## 7. Microcontrolador MSP430
-* **Arquitetura Von Neumann:** O MSP430 utiliza um **espaço de memória unificado**. Isso significa que a Memória Flash (instruções), a Memória RAM (dados) e os Periféricos compartilham exatamente o mesmo mapa de endereçamento (0x0000 a 0xFFFF).
-  * *Diferença para a Harvard:* A arquitetura Harvard divide fisicamente memórias de dados e de instruções. O MSP430 mistura ambos em um único barramento.
-* **16 bits nativos:** Todas as passagens e ponteiros do MSP430 são idealizados para palavras (words) de 16-bits (sufixo `.w`), mas ele também permite manipulação a nível de byte (8-bits, sufixo `.b`).
+### B. Tipo I (Immediate)
+Usado quando a instrução carrega uma constante matemática (imediato), ou para Load/Store e Branches (ex: `addi`, `lw`, `sw`, `beq`).
+* **Estrutura (32 bits):** `| opcode (6 bits) | rs (5 bits) | rt (5 bits) | imediato (16 bits) |`
+  * **imediato:** O valor numérico embutido. Com 16 bits, pode representar de -32768 a +32767 (em complemento de dois).
+
+### C. Tipo J (Jump)
+Usado para saltos incondicionais absolutos (ex: `j`, `jal`).
+* **Estrutura (32 bits):** `| opcode (6 bits) | endereço (26 bits) |`
+  * O processador pega os 26 bits, multiplica por 4 (shift left 2) gerando 28 bits, e junta aos 4 bits mais significativos do PC atual para formar o salto.
+
+### D. Exemplo Prático de Tradução (Assembly ↔ Binário/Hexadecimal)
+
+**1. De Assembly para Binário/Hexadecimal:**
+Vamos traduzir a instrução `addiu $29, $29, -32`.
+* **Formato:** Tipo I (Imediato). O `opcode` da operação `addiu` é 9.
+* **Separando os campos:** `| opcode (6) | rs (5) | rt (5) | imm (16) |`
+* **Convertendo os valores para binário:**
+  * `opcode` = 9 $\rightarrow$ `001001`
+  * `rs` (`$29`) = 29 $\rightarrow$ `11101`
+  * `rt` (`$29`) = 29 $\rightarrow$ `11101`
+  * `imm` = -32 $\rightarrow$ Usando Complemento de 2 em 16 bits: `1111111111100000`
+* **Juntando tudo (Binário contínuo):** `00100111101111011111111111100000`
+* **Agrupando de 4 em 4 bits para Hexadecimal:**
+  `0010` (2), `0111` (7), `1011` (B), `1101` (D), `1111` (F), `1111` (F), `1110` (E), `0000` (0)
+* **Resultado Hexadecimal:** `0x27BDFFE0`
+
+**2. De Hexadecimal para Assembly:**
+Vamos fazer a engenharia reversa do código hexadecimal `0x012A4020`.
+* **Convertendo para Binário (32 bits):**
+  `0000 0001 0010 1010 0100 0000 0010 0000`
+* Analisando o **opcode** (6 primeiros bits): `000000` (0). Opcode 0 no MIPS significa que é uma instrução do **Tipo R**.
+* **Separando os campos Tipo R:** `| op (6) | rs (5) | rt (5) | rd (5) | shamt (5) | funct (6) |`
+  * `op`: `000000` (0)
+  * `rs`: `01001` (9) $\rightarrow$ Refere-se ao registrador `$t1` (pois `$t0` é 8)
+  * `rt`: `01010` (10) $\rightarrow$ Refere-se ao registrador `$t2`
+  * `rd`: `01000` (8) $\rightarrow$ Refere-se ao registrador `$t0`
+  * `shamt`: `00000` (0)
+  * `funct`: `100000` (32) $\rightarrow$ O código 32 indica a operação de adição `add`
+* **Montando a instrução final:** O formato em Assembly escreve-se como `add rd, rs, rt`. 
+* **Resultado Assembly:** `add $t0, $t1, $t2`
+
+## 4. Modos de Endereçamento (Como encontrar o dado)
+* **Imediato:** O operando está direto nos 16 bits da instrução. (ex: O `100` em `addi $t0, $t1, 100`).
+* **A Registrador:** O operando é o conteúdo de um registrador codificado na instrução. (ex: `$t1`, `$t2` em Tipo R).
+* **Base-Deslocamento:** Usado no acesso à memória (Load/Store). Soma-se o conteúdo de um registrador Base (`rs`) com uma constante/deslocamento (`imediato` de 16 bits). Ex: `lw $t0, 8($s0)` -> Endereço lido = conteúdo de `$s0` + `8`.
+* **Relativo ao PC:** Usado por saltos condicionais (`beq`, `bne`). O novo endereço (se o salto ocorrer) será: `PC_atual + 4 + (imediato * 4)`. O imediato é a "quantidade de instruções" a pular para frente ou para trás.
+* **Pseudo-Direto:** Usado no Jump (`j`). Como visto no Tipo J, forma o endereço combinando 26 bits da instrução com o PC.
+
+## 5. O Acesso à Memória
+A comunicação UCP $\leftrightarrow$ Memória é feita por sinais (barramentos):
+1. **Sinais de Endereço:** Determina a posição lida/escrita. Se o barramento de endereço tiver $m$ bits, a CPU consegue endereçar $2^m$ posições de memória. No MIPS de 32-bits, $m=32$.
+2. **Sinais de Operação (Controle):** *Read/Write* (RW) - Um sinal 0 ou 1 que avisa se a memória deve ejetar o dado (Load) ou salvar o dado (Store).
+3. **Sinais de Dados:** O barramento por onde o valor efetivamente trafega ($n$ bits de largura). No MIPS, a largura típica é de 32 fios paralelos.
+
+## 6. Tradução de Código e Lógica MIPS (Exercícios)
+Para provas de MIPS, lembre-se destas equivalências clássicas de C para Assembly:
+* **`if (A == B)`:** Usa-se instrução contrária para pular o bloco: `bne $t0, $t1, pula_o_bloco`.
+* **Loops (`while` / `for`):** Configura-se uma condição de saída e, no fim do laço, coloca-se um `j loop` para voltar.
+* **Arrays:** Para avançar em um array de inteiros no MIPS, você deve incrementar o ponteiro **de 4 em 4** (pois cada número de 32-bits = 4 bytes). Exemplo prático: `addiu $t0, $t0, 4`.
+
+## 7. MSP430G2553 (Foco Avançado)
+* Ao contrário do MIPS, o MSP430 usa a arquitetura **Von Neumann**. A Memória Flash (para as instruções do programa) e a Memória RAM (para os dados) estão fisicamente unificadas no mesmo mapa de endereços (0x0000 a 0xFFFF).
+* O MSP430 pode referenciar um pino do hardware acendendo um LED (`P1OUT`) do mesmo jeito que salva um dado na RAM, usando simples instruções do tipo `MOV`.
+* Instruções possuem sufixos de largura: `.w` para palavras inteiras de 16 bits (Word) e `.b` para 8 bits (Byte). O MIPS trata isso com instruções diferentes como `lw` e `lb`.
